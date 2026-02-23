@@ -1,0 +1,36 @@
+name: mobile_dago  # <--- SAYA UBAH JADI mobile_dago SUPAYA IMPORT TIDAK ERROR
+description: "Aplikasi POS Dago Mobile"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0' # Saya perlebar range-nya biar aman
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- WEBVIEW ---
+  flutter_inappwebview: ^6.0.0
+
+  # --- BLUETOOTH (VERSI STABIL) ---
+  # JANGAN PAKAI TANDA ^ (CARET). KITA KUNCI DI 1.32.0
+  flutter_blue_plus: 1.32.0 
+
+  # --- FORMAT STRUK ---
+  esc_pos_utils_plus: ^2.0.4
+
+  # --- IZIN ---
+  permission_handler: ^11.3.0 
+
+  shared_preferences: ^2.2.3
+  cupertino_icons: ^1.0.2
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

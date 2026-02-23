@@ -1,0 +1,23 @@
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+
+/* Di dalam file src/index.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tambahkan ini untuk menyembunyikan scrollbar di berbagai browser */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
