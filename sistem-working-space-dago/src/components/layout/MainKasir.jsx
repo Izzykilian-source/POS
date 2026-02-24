@@ -1,6 +1,6 @@
 import { Sidebar } from "lucide-react";
 import { useContext, useState, useEffect } from "react";
-import SidebarKasir from "./sidebar";
+import SidebarKasir from "./Sidebar";
 import { AuthContext } from "../../providers/AuthProvider";
 import { useNavigate } from "react-router-dom";
 
