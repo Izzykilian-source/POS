@@ -13,7 +13,7 @@ import ProductKategoriTab from "./tabs/ProductKategoriTab";
 import ProductTab from "./tabs/ProductTab";
 import PromoTab from "./tabs/PromoTab";
 import CoaadminTab from "./tabs/CoaadminTab";
-import FAQTab from "./tabs/FAQtab";
+import FAQTab from "./tabs/FAQTab";
 import SettingsTab from "./tabs/SettingsTab";
 
 // === IMPORT WORKING SPACE DI-HIDE ===
