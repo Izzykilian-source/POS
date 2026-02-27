@@ -13,6 +13,7 @@ import locale from "antd/locale/id_ID";
 const { Text } = Typography;
 
 const CobaMenuPelanggans = () => {
+    // State tenant tetap ada untuk keperluan logic background, tapi tidak ditampilkan ke user
     const [tenants, setTenants] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -35,20 +36,7 @@ const CobaMenuPelanggans = () => {
     const menuKategoriRefs = useRef({});
     const kategoriNavRefs = useRef({});
     const isClickScrolling = useRef(false);
-    
-    // REF BARU: Untuk mengukur tinggi header gabungan (Tenant + Kategori) secara dinamis
     const stickyHeaderRef = useRef(null);
-
-    const handleSelectTenant = (tenantId) => {
-        if (tenantId !== selectedMerchant) {
-            setLoading(true);
-            setSelectedMerchant(tenantId);
-            setKategori([]);
-            setMenuByKategori({});
-            setActiveKategori(null);
-            setSearchTerm(""); 
-        }
-    };
 
     const fetchKategoriByMerchant = async (idMerchant) => {
         try {
@@ -71,12 +59,13 @@ const CobaMenuPelanggans = () => {
             if (kategoriData.datas.length > 0) setActiveKategori(kategoriData.datas[0].id_kategori);
             else setActiveKategori(null);
         } catch (error) {
-            setError("Gagal memuat menu untuk tenant ini.");
+            setError("Gagal memuat menu.");
         } finally {
             setLoading(false);
         }
     };
 
+    // Logic: Mengambil tenant pertama secara otomatis di background
     useEffect(() => {
         const initialLoad = async () => {
             try {
@@ -84,13 +73,14 @@ const CobaMenuPelanggans = () => {
                 const tenantData = await getTenants();
                 if (tenantData.datas && tenantData.datas.length > 0) {
                     setTenants(tenantData.datas);
+                    // Langsung set merchant pertama (Dago Hub) tanpa user tahu
                     setSelectedMerchant(tenantData.datas[0].id_tenant);
                 } else {
-                    setError("Tidak ada tenant yang tersedia.");
+                    setError("Tidak ada menu yang tersedia saat ini.");
                     setLoading(false);
                 }
             } catch (error) {
-                setError("Gagal memuat daftar tenant.");
+                setError("Gagal memuat data sistem.");
                 setLoading(false);
             }
         };
@@ -119,11 +109,9 @@ const CobaMenuPelanggans = () => {
         const headerElement = stickyHeaderRef.current;
         
         if (element && headerElement) {
-            // Ukur tinggi header saat ini (Berbeda di HP vs Desktop)
             const headerHeight = headerElement.offsetHeight; 
             const elementPosition = element.getBoundingClientRect().top;
             
-            // Beri margin ekstra 20px agar judul kategori tidak mepet dengan navbar
             const offsetPosition = elementPosition + window.scrollY - headerHeight - 20;
 
             window.scrollTo({
@@ -142,9 +130,8 @@ const CobaMenuPelanggans = () => {
             if (isClickScrolling.current || kategori.length === 0) return; 
             
             const headerElement = stickyHeaderRef.current;
-            const headerHeight = headerElement ? headerElement.offsetHeight : 140;
+            const headerHeight = headerElement ? headerElement.offsetHeight : 80; // Sesuaikan default tinggi header
             
-            // Titik deteksi: Tinggi header + 50px toleransi ke bawah
             const scrollPos = window.scrollY + headerHeight + 50; 
             let current = activeKategori;
 
@@ -224,42 +211,9 @@ const CobaMenuPelanggans = () => {
         <ConfigProvider locale={locale}>
             <div className="bg-slate-50 min-h-screen pb-32 font-sans text-slate-900">
                 
-                {/* 1. STICKY HEADER WRAPPER (TENANT & CATEGORY) */}
+                {/* 1. STICKY HEADER WRAPPER (HANYA CATEGORY & SEARCH SEKARANG) */}
                 <div ref={stickyHeaderRef} className="sticky top-0 z-50 flex flex-col shadow-sm">
                     
-                    {/* A. HEADER TENANTS */}
-                    <div className="bg-white border-b border-slate-100">
-                        {/* max-w-7xl membuat layout melebar di layar Desktop */}
-                        <div className="max-w-7xl mx-auto px-4 py-3">
-                            <div className="flex overflow-x-auto no-scrollbar gap-3 pb-1 items-center">
-                                {tenants.map((tenant) => {
-                                    const isActive = selectedMerchant === tenant.id_tenant;
-                                    return (
-                                        <button
-                                            key={tenant.id_tenant}
-                                            onClick={() => handleSelectTenant(tenant.id_tenant)}
-                                            className={`shrink-0 flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 border ${
-                                                isActive 
-                                                ? 'bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-500/30 transform scale-100' 
-                                                : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300 transform scale-95 hover:scale-100 text-slate-500'
-                                            }`}
-                                        >
-                                            <img
-                                                src={`${import.meta.env.VITE_BASE_URL.replace('/api/v1', '')}/static/${tenant.gambar_tenant}`}
-                                                alt={tenant.nama_tenant}
-                                                className="w-9 h-9 rounded-full object-cover bg-slate-100"
-                                                onError={(e) => { e.target.onerror = null; e.target.src = "/static/logo_dago.png" }}
-                                            />
-                                            <span className={`font-bold text-sm tracking-tight ${isActive ? 'text-white' : 'text-slate-600'}`}>
-                                                {tenant.nama_tenant}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-
                     {/* B. CATEGORY NAV & SEARCH */}
                     <div className="bg-white/95 backdrop-blur-md border-b border-slate-100">
                         <div className="max-w-7xl mx-auto px-4 py-3">
@@ -293,7 +247,7 @@ const CobaMenuPelanggans = () => {
                                     </button>
                                     <div className="w-[1px] h-6 bg-slate-200 shrink-0 mx-1"></div>
                                     
-                                    {/* Pembungkus Navigasi Kategori (Bisa di-swipe di Mobile) */}
+                                    {/* Pembungkus Navigasi Kategori */}
                                     <div className="flex overflow-x-auto no-scrollbar gap-2 scroll-smooth w-full items-center py-1">
                                         {kategori.map(kat => {
                                             const isActive = activeKategori === kat.id_kategori;
@@ -302,7 +256,6 @@ const CobaMenuPelanggans = () => {
                                                     key={kat.id_kategori} 
                                                     ref={el => kategoriNavRefs.current[kat.id_kategori] = el}
                                                     onClick={() => scrollToCategory(kat.id_kategori)}
-                                                    // Class shrink-0 memastikan tombol tidak gepeng di layar kecil
                                                     className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all ${
                                                         isActive 
                                                         ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20' 
@@ -338,7 +291,7 @@ const CobaMenuPelanggans = () => {
                                          <TbBasketOff size={40} className="text-slate-300" />
                                      </div>
                                      <h3 className="text-lg font-bold text-slate-800">Belum ada menu</h3>
-                                     <p className="text-slate-500 mt-1">Tenant ini sedang menyiapkan menu andalannya.</p>
+                                     <p className="text-slate-500 mt-1">Sistem sedang menyiapkan menu andalan.</p>
                                  </div>
                              )}
 
@@ -350,7 +303,6 @@ const CobaMenuPelanggans = () => {
                                     <div key={kat.id_kategori} ref={el => menuKategoriRefs.current[kat.id_kategori] = el}>
                                         <h2 className="text-xl md:text-2xl font-black text-slate-900 mb-5 tracking-tight">{kat.nama_kategori}</h2>
                                         
-                                        {/* GRID RESPONSIVE: 1 kolom di HP, 2 di Tablet, 3-4 di Desktop */}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
                                             {menuInCategory.map((item) => (
                                                 <div key={item.id_produk} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow">
@@ -510,11 +462,9 @@ const CobaMenuPelanggans = () => {
             </div>
 
             <style>{`
-                /* Sembunyikan scrollbar bawaan untuk tampilan mobile yang clean */
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                 
-                /* Custom drawer Antd untuk sudut melengkung modern */
                 .custom-rounded-drawer .ant-drawer-content {
                     border-top-left-radius: 24px !important;
                     border-top-right-radius: 24px !important;
