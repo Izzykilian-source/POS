@@ -60,8 +60,8 @@ const SidebarAdmin = () => {
         // ========================================================
         { name: "Transaksi", icon: <BsCart3 />, path: "/transaksiadmin" },
         { name: "Master Data", icon: <FaDatabase />, path: "/masterdataadmin" },
-        { name: "Cost Bulanan", icon: <FaMoneyBill />, path: "/costbulananadmin" },
-        { name: "Hutang Admin", icon: <MdMoneyOff />, path: "/hutangadmin" },
+        //{ name: "Cost Bulanan", icon: <FaMoneyBill />, path: "/costbulananadmin" },
+       // { name: "Hutang Admin", icon: <MdMoneyOff />, path: "/hutangadmin" },
         {
             name: "Logout",
             icon: <SlLogout />,

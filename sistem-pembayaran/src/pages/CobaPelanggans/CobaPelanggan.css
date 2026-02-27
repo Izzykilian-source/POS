@@ -1,23 +1,115 @@
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-
-/* Di dalam file src/index.css */
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Tambahkan ini untuk menyembunyikan scrollbar di berbagai browser */
+/* ==========================================================================
+   1. UTILITIES: HIDE SCROLLBAR
+   ========================================================================== */
+/* Sembunyikan scrollbar untuk elemen dengan class ini (tapi tetap bisa di-scroll) */
+.no-scrollbar::-webkit-scrollbar,
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
 }
+
+.no-scrollbar,
 .scrollbar-hide {
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
+}
+
+/* ==========================================================================
+   2. ANIMATIONS
+   ========================================================================== */
+/* Animasi muncul dari bawah (Digunakan untuk Floating Cart) */
+@keyframes slideUp {
+    from { 
+        transform: translateY(100%); 
+        opacity: 0; 
+    }
+    to { 
+        transform: translateY(0); 
+        opacity: 1; 
+    }
+}
+.animate-slide-up {
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Animasi pudar dan naik lembut (Digunakan untuk Form & Halaman Sukses) */
+@keyframes fadeIn {
+    from { 
+        opacity: 0; 
+        transform: translateY(10px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* ==========================================================================
+   3. ANT DESIGN OVERRIDES: DRAWER (Pop-up dari bawah)
+   ========================================================================== */
+/* Membuat sudut atas Drawer menjadi sangat membulat khas aplikasi mobile modern */
+.custom-rounded-drawer .ant-drawer-content {
+    border-top-left-radius: 24px !important;
+    border-top-right-radius: 24px !important;
+    overflow: hidden;
+    box-shadow: 0 -20px 40px -20px rgba(0,0,0,0.15) !important;
+}
+
+.custom-rounded-drawer .ant-drawer-header {
+    padding-top: 24px;
+}
+
+/* Mempercantik tombol 'X' (Close) pada Drawer */
+.custom-rounded-drawer .ant-drawer-close {
+    margin-top: 4px;
+    color: #64748b;
+    background: #f1f5f9;
+    border-radius: 50%;
+    width: 32px; 
+    height: 32px;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    transition: all 0.2s ease-in-out;
+}
+
+.custom-rounded-drawer .ant-drawer-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+/* ==========================================================================
+   4. ANT DESIGN OVERRIDES: MODAL (Pop-up Tengah)
+   ========================================================================== */
+/* Mempercantik Modal Promo/Voucher di halaman Pembayaran */
+.custom-promo-modal .ant-modal-content {
+    border-radius: 28px !important;
+    overflow: hidden;
+    padding: 24px !important;
+}
+
+.custom-promo-modal .ant-modal-header { 
+    margin-bottom: 8px; 
+}
+
+/* Mempercantik tombol 'X' (Close) pada Modal */
+.custom-promo-modal .ant-modal-close { 
+    top: 20px; 
+    right: 20px; 
+    color: #64748b;
+    background: #f1f5f9;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease-in-out;
+}
+
+.custom-promo-modal .ant-modal-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
 }

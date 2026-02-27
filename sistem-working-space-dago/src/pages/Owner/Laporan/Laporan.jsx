@@ -1,59 +1,28 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ConfigProvider,
-  Row,
-  Col,
-  Card,
-  Statistic,
-  Table,
-  Empty,
-  DatePicker,
-  Select,
-  message,
-  Button,
-  Typography,
-  Divider,
+  ConfigProvider, Row, Col, Card, Statistic, Table, Empty, DatePicker,
+  Select, message, Button, Typography, Divider,
 } from "antd";
 import locale from "antd/locale/id_ID";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 import html2canvas from "html2canvas-pro";
 import {
-  PrinterOutlined,
-  LineChartOutlined,
-  PieChartOutlined,
-  BarChartOutlined,
-  TrophyOutlined,
+  PrinterOutlined, LineChartOutlined, PieChartOutlined, BarChartOutlined, TrophyOutlined,
 } from "@ant-design/icons";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  ArcElement,
-  PointElement,
-  LineElement,
-  Tooltip as ChartTooltip,
-  Legend,
-  Filler,
+  Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement,
+  PointElement, LineElement, Tooltip as ChartTooltip, Legend, Filler,
 } from "chart.js";
-import ChartDataLabels from "chartjs-plugin-datalabels"; // <-- Wajib ada untuk memunculkan teks di dalam chart
+import ChartDataLabels from "chartjs-plugin-datalabels"; 
 import { getDashboardSummary } from "../../../services/service";
 
 dayjs.locale("id");
 
 ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  ArcElement,
-  PointElement,
-  LineElement,
-  ChartTooltip,
-  Legend,
-  Filler,
-  ChartDataLabels
+  CategoryScale, LinearScale, BarElement, ArcElement, PointElement,
+  LineElement, ChartTooltip, Legend, Filler, ChartDataLabels
 );
 
 const { Title, Text } = Typography;
@@ -81,7 +50,9 @@ const Laporan = () => {
   const [visitorsByHour, setVisitorsByHour] = useState([]);
   const [topFnb, setTopFnb] = useState([]);
   const [paymentBreakdown, setPaymentBreakdown] = useState([]);
-  const [tenantContribution, setTenantContribution] = useState([]);
+  
+  // ✅ UBAH: State untuk menyimpan data kategori produk dari API
+  const [productCategoryBreakdown, setProductCategoryBreakdown] = useState([]);
 
   // --- FETCH DATA ---
   useEffect(() => {
@@ -103,7 +74,11 @@ const Laporan = () => {
         setVisitorsByHour(Array.isArray(d?.visitors_by_hour) ? d.visitors_by_hour : []);
         setTopFnb(Array.isArray(d?.top_fnb) ? d.top_fnb : []);
         setPaymentBreakdown(Array.isArray(d?.payment_breakdown) ? d.payment_breakdown : []);
-        setTenantContribution(Array.isArray(d?.tenant_contribution) ? d.tenant_contribution : []);
+        
+        // ✅ UBAH: Ambil data product_category dari API
+        // Pastikan backend mengembalikan key "product_category" yang berisi array object {category: string, total: number}
+        setProductCategoryBreakdown(Array.isArray(d?.product_category) ? d.product_category : []);
+        
       } catch (e) {
         console.error(e);
         message.error("Gagal memuat data laporan.");
@@ -121,18 +96,11 @@ const Laporan = () => {
   const rataRataHarian = totalPendapatanBersih / totalHari;
   const rataRataPerPesanan = totals.total_transactions > 0 ? totalPendapatanBersih / totals.total_transactions : 0;
 
-  const netTenantContribution = useMemo(() => {
-    return tenantContribution
-      .filter((t) => !t.tenant.toLowerCase().includes("working space"))
-      .map((t) => ({ ...t, nett: t.nett * netRatio }))
-      .sort((a, b) => b.nett - a.nett);
-  }, [tenantContribution, netRatio]);
-
-  // === KONFIGURASI GRAFIK (BERKELAS & TERBACA JELAS) ===
+  // === KONFIGURASI GRAFIK ===
   const chartFontColor = "#595959";
   const chartGridColor = "#f0f0f0";
   const primaryColor = "#1677ff"; 
-  const palette = ["#1677ff", "#13c2c2", "#52c41a", "#faad14", "#722ed1", "#eb2f96"];
+  const palette = ["#1677ff", "#13c2c2", "#52c41a", "#faad14", "#722ed1", "#eb2f96", "#f5222d", "#fa8c16"];
 
   // 1. Line Chart (Tren Penjualan)
   const lineLabels = useMemo(() => dailySales.map((d) => dayjs(d.tanggal).format("DD MMM")), [dailySales]);
@@ -162,7 +130,7 @@ const Laporan = () => {
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      datalabels: { display: false }, // Dimatikan untuk line chart agar tidak semrawut
+      datalabels: { display: false },
       tooltip: {
         backgroundColor: "rgba(0, 0, 0, 0.75)",
         padding: 12,
@@ -212,19 +180,17 @@ const Laporan = () => {
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    layout: {
-      padding: { top: 25 } // Ruang ekstra di atas grafik untuk label angka
-    },
+    layout: { padding: { top: 25 } },
     plugins: {
       legend: { display: false },
       datalabels: {
-        display: true, // DIMUNCULKAN
+        display: true,
         color: '#262626',
         anchor: 'end',
         align: 'top',
         offset: 2,
         font: { weight: 'bold', size: 11, family: "Inter, sans-serif" },
-        formatter: (value) => (value > 0 ? value : "") // Hanya tampilkan jika > 0
+        formatter: (value) => (value > 0 ? value : "") 
       },
       tooltip: {
         backgroundColor: "rgba(0, 0, 0, 0.75)",
@@ -250,21 +216,20 @@ const Laporan = () => {
   // 3. Doughnut Charts (Persentase)
   const doughnutOptions = {
     maintainAspectRatio: false,
-    cutout: "65%", // Agak tebal sedikit agar teks muat
+    cutout: "65%",
     plugins: {
       legend: {
         position: "right",
         labels: { usePointStyle: true, boxWidth: 8, color: '#262626', font: { size: 12, weight: '500' } },
       },
       datalabels: {
-        display: true, // DIMUNCULKAN
-        color: '#ffffff', // Teks Putih
+        display: true, 
+        color: '#ffffff', 
         font: { weight: 'bold', size: 12, family: "Inter, sans-serif" },
         formatter: (value, ctx) => {
           const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
           if (!total) return "";
           const percentage = Math.round((value / total) * 100);
-          // Sembunyikan label jika porsinya terlalu kecil (di bawah 5%) agar tidak bertumpuk
           return percentage >= 5 ? `${percentage}%` : ""; 
         },
       },
@@ -290,13 +255,22 @@ const Laporan = () => {
     };
   }, [paymentBreakdown, netRatio]);
 
-  const tenantDoughnut = useMemo(() => {
-    if (!netTenantContribution || netTenantContribution.length === 0) return { labels: [], datasets: [] };
+  // ✅ UBAH: Logika Doughnut untuk Product Category
+  const categoryDoughnut = useMemo(() => {
+    if (!productCategoryBreakdown || productCategoryBreakdown.length === 0) return { labels: [], datasets: [] };
+    // Urutkan berdasarkan total pendapatan terbanyak
+    const sorted = [...productCategoryBreakdown].sort((a, b) => b.total - a.total);
     return {
-      labels: netTenantContribution.map((t) => t.tenant),
-      datasets: [{ data: netTenantContribution.map((t) => t.nett), backgroundColor: palette, borderWidth: 1, borderColor: '#fff' }],
+      // Pastikan property 'category' dan 'total' sesuai dengan response dari backend
+      labels: sorted.map((c) => c.category || 'Lainnya'),
+      datasets: [{ 
+          data: sorted.map((c) => (c.total || 0) * netRatio), 
+          backgroundColor: palette, 
+          borderWidth: 1, 
+          borderColor: '#fff' 
+      }],
     };
-  }, [netTenantContribution]);
+  }, [productCategoryBreakdown, netRatio]);
 
   // === UTILITIES ===
   const handlePrint = async () => {
@@ -453,13 +427,15 @@ const Laporan = () => {
             <Card bordered={false} loading={loading} style={{ borderRadius: '8px', height: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
                 <PieChartOutlined style={{ fontSize: '18px', color: primaryColor, marginRight: '8px' }} />
-                <span style={{ fontSize: '16px', fontWeight: 600, color: '#262626' }}>Tenant Contribution</span>
+                {/* ✅ UBAH: Teks Judul Card */}
+                <span style={{ fontSize: '16px', fontWeight: 600, color: '#262626' }}>Product Category</span>
               </div>
               <div style={{ height: '260px' }}>
-                {netTenantContribution.length === 0 ? (
+                {/* ✅ UBAH: Cek state baru dan gunakan categoryDoughnut */}
+                {productCategoryBreakdown.length === 0 ? (
                   <Empty description="No data available" />
                 ) : (
-                  <Doughnut data={tenantDoughnut} options={doughnutOptions} />
+                  <Doughnut data={categoryDoughnut} options={doughnutOptions} />
                 )}
               </div>
             </Card>

@@ -2,37 +2,23 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
-    Button,
-    Table,
-    Tag,
-    Select,
-    Input,
-    Modal,
-    message,
-    Spin,
-    Card,
-    Descriptions,
-    Progress
+    Button, Table, Tag, Select, Input, Modal, message, Spin, Card, Descriptions, Alert
 } from "antd";
-import { PlusOutlined, EditOutlined, PrinterOutlined, ArrowLeftOutlined } from "@ant-design/icons";
+import { PlusOutlined, EditOutlined, PrinterOutlined, ArrowLeftOutlined, SettingOutlined } from "@ant-design/icons";
 import { Pie } from "@ant-design/charts";
 import {
-    getDataTransaksiKasir,
-    getTransaksiBySessionId,
-    updatePaymentStatus,
-    updateBatalStatus
+    getDataTransaksiKasir, getTransaksiBySessionId, updatePaymentStatus, updateBatalStatus
 } from "../../../services/service.js";
 import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
 import { formatRupiah } from "../../../utils/formatRupiah";
 import { useAuth } from "../../../providers/AuthProvider";
-import logoDago from "../../../assets/images/logo.png"; // Pastikan path logo benar
+
+// ✅ IMPORT BLUETOOTH SERIAL
+import { BluetoothSerial } from '@awesome-cordova-plugins/bluetooth-serial';
 
 const { Option } = Select;
-
-const CHART_COLORS = [
-    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6',
-];
+const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
 
 const OrderCard = ({ order, getStatusColor, getDisplayStatus, getPaymentStatusColor, onClick }) => (
     <div
@@ -77,6 +63,13 @@ const TransaksiKasir = () => {
     const [isUpdating, setIsUpdating] = useState(false);
     const [isPrinting, setIsPrinting] = useState(false);
 
+    // --- STATE UNTUK PRINTER BLUETOOTH ---
+    const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
+    const [isScanning, setIsScanning] = useState(false);
+    const [devices, setDevices] = useState([]);
+    const [savedPrinterMac, setSavedPrinterMac] = useState(localStorage.getItem('printerMacAddress') || "");
+    const [savedPrinterName, setSavedPrinterName] = useState(localStorage.getItem('printerName') || "Belum disetting");
+
     const notificationSound = useRef(null);
     const knownTransactionIds = useRef(new Set());
 
@@ -91,71 +84,40 @@ const TransaksiKasir = () => {
     const fetchAndCheckOrders = useCallback(async (isInitialLoad = false) => {
         if (isInitialLoad) setLoading(true);
         try {
-            let result;
-            if (isHistoryMode) {
-                result = await getTransaksiBySessionId(id);
-            } else {
-                result = await getDataTransaksiKasir();
-            }
-
-            if (result.message !== "OK") {
-                throw new Error(result.error || "Gagal mengambil data transaksi");
-            }
+            let result = isHistoryMode ? await getTransaksiBySessionId(id) : await getDataTransaksiKasir();
+            if (result.message !== "OK") throw new Error(result.error || "Gagal mengambil data transaksi");
 
             const fetchedOrders = result.datas?.map((o) => {
                 const isBooking = o.type === 'Booking';
                 let orderLocation = o.location || "-";
-
                 if (isBooking && o.bookings && o.bookings.length > 0) {
                     orderLocation = o.bookings.map(b => b.room_name).join(', ');
                 }
-
                 return {
-                    id: o.id,
-                    name: o.customer || "Guest",
-                    location: orderLocation,
-                    status: o.status_pesanan || 'N/A',
-                    price: parseFloat(o.total) || 0,
+                    id: o.id, name: o.customer || "Guest", location: orderLocation,
+                    status: o.status_pesanan || 'N/A', price: parseFloat(o.total) || 0,
                     items: o.items || [],
-                    bookings: (o.bookings || []).map(b => ({
-                        ...b,
-                        booked_price: parseFloat(b.booked_price || 0)
-                    })),
-                    time: o.time || new Date().toISOString(),
-                    type: o.type || 'N/A',
-                    payment_status: o.payment_status || 'N/A',
-                    payment_method: o.payment_method || '-',
-
-                    subtotal: parseFloat(o.subtotal) || 0,
-                    tax_nominal: parseFloat(o.tax_nominal) || 0,
-                    tax_percent: parseFloat(o.tax_percent) || 0,
-                    uang_diterima: parseFloat(o.uang_diterima) || 0,
-                    kembalian: parseFloat(o.kembalian) || 0,
-
-                    // --- DATA VOUCHER ---
-                    vouchers: o.vouchers || [] // Ambil data voucher dari API
-                    // --------------------
+                    bookings: (o.bookings || []).map(b => ({ ...b, booked_price: parseFloat(b.booked_price || 0) })),
+                    time: o.time || new Date().toISOString(), type: o.type || 'N/A',
+                    payment_status: o.payment_status || 'N/A', payment_method: o.payment_method || '-',
+                    subtotal: parseFloat(o.subtotal) || 0, tax_nominal: parseFloat(o.tax_nominal) || 0,
+                    tax_percent: parseFloat(o.tax_percent) || 0, uang_diterima: parseFloat(o.uang_diterima) || 0,
+                    kembalian: parseFloat(o.kembalian) || 0, vouchers: o.vouchers || []
                 };
             }) || [];
 
             if (!isHistoryMode) {
                 const currentIds = new Set(fetchedOrders.map(o => o.id));
-                const hasNewOrder = fetchedOrders.some(
-                    (order) => !knownTransactionIds.current.has(order.id)
-                );
+                const hasNewOrder = fetchedOrders.some((order) => !knownTransactionIds.current.has(order.id));
                 if (hasNewOrder && knownTransactionIds.current.size > 0 && notificationSound.current) {
                     notificationSound.current.play().catch((e) => console.error("Audio play failed:", e));
                 }
                 knownTransactionIds.current = currentIds;
             }
-
             setOrders(fetchedOrders);
-
         } catch (err) {
             console.error("Fetch error:", err);
-            if (isInitialLoad) {
-                message.error(`Gagal memuat data: ${err.message}`);
-            }
+            if (isInitialLoad) message.error(`Gagal memuat data: ${err.message}`);
         } finally {
             if (isInitialLoad) setLoading(false);
         }
@@ -163,313 +125,277 @@ const TransaksiKasir = () => {
 
     useEffect(() => {
         let intervalId = null;
-
         if (isHistoryMode) {
             fetchAndCheckOrders(true);
         } else {
-            if (isSessionLoading) {
-                setLoading(true);
-                return;
-            }
+            if (isSessionLoading) { setLoading(true); return; }
             if (activeSession) {
                 fetchAndCheckOrders(true);
                 intervalId = setInterval(() => fetchAndCheckOrders(false), 15000);
             } else {
-                setLoading(false);
-                setOrders([]);
-                knownTransactionIds.current.clear();
+                setLoading(false); setOrders([]); knownTransactionIds.current.clear();
             }
         }
-
-        return () => {
-            if (intervalId) clearInterval(intervalId);
-        };
+        return () => { if (intervalId) clearInterval(intervalId); };
     }, [activeSession, isSessionLoading, fetchAndCheckOrders, isHistoryMode]);
 
+    // --- Warna & Filter ---
     const getStatusColor = (status) => {
         switch (status) {
-            case "Baru": return "blue";
-            case "Diproses": return "orange";
-            case "Sebagian Diproses": return "orange";
-            case "Selesai": return "green";
-            case "Batal": return "red";
-            default: return "default";
+            case "Baru": return "blue"; case "Diproses": return "orange"; case "Sebagian Diproses": return "orange";
+            case "Selesai": return "green"; case "Batal": return "red"; default: return "default";
         }
     };
     const getPaymentStatusColor = (paymentStatus) => {
         switch (paymentStatus) {
-            case "Lunas": return "green";
-            case "Belum Lunas": return "red";
-            case "Disimpan": return "geekblue";
-            case "Dibatalkan": return "red";
-            default: return "default";
+            case "Lunas": return "green"; case "Belum Lunas": return "red";
+            case "Disimpan": return "geekblue"; case "Dibatalkan": return "red"; default: return "default";
         }
     };
     const getDisplayStatus = (status) => status || 'N/A';
 
-    // --- Logic Filter & Summary (Sama seperti sebelumnya) ---
-    // ...
-    // Saya sarankan ubah nama variabel dari 'filteredOrders' menjadi 'filteredOrders' agar lebih akurat
-    const filteredOrders = useMemo(() => orders
-        // HAPUS BARIS FILTER BOOKING DISINI
-        .filter((order) => {
-            // Logika filter dropdown
-            if (filterStatus !== "all") {
-                if (filterStatus === "Diproses") {
-                    if (order.status !== "Diproses" && order.status !== "Sebagian Diproses") return false;
-                } else if (order.status !== filterStatus) return false;
-            }
+    const filteredOrders = useMemo(() => orders.filter((order) => {
+        if (filterStatus !== "all") {
+            if (filterStatus === "Diproses") { if (order.status !== "Diproses" && order.status !== "Sebagian Diproses") return false; } 
+            else if (order.status !== filterStatus) return false;
+        }
+        if (filterType !== "all") {
+            const typeMap = { dinein: "Dine In", takeaway: "Takeaway", pickup: "Pick Up", booking: "Booking" };
+            if (order.type === 'Booking' && filterType !== 'booking') { if (filterType !== 'all') return false; } 
+            else { if (order.type.toLowerCase() !== typeMap[filterType]?.toLowerCase()) return false; }
+        }
+        if (filterPayment !== "all") { if (order.payment_status !== filterPayment) return false; }
+        if (searchText) {
+            const searchLower = searchText.toLowerCase();
+            const itemMatch = order.items?.some(item => item.product?.toLowerCase().includes(searchLower));
+            const bookingMatch = order.bookings?.some(b => b.room_name?.toLowerCase().includes(searchLower));
+            return ( order.name?.toLowerCase().includes(searchLower) || order.location?.toLowerCase().includes(searchLower) || order.id?.toString().includes(searchLower) || itemMatch || bookingMatch );
+        }
+        return true;
+    }), [orders, filterStatus, filterType, filterPayment, searchText]);
 
-            if (filterType !== "all") {
-                const typeMap = {
-                    dinein: "Dine In",
-                    takeaway: "Takeaway",
-                    pickup: "Pick Up",
-                    booking: "Booking" // Tambahkan mapping ini
-                };
+    const totalSales = useMemo(() => filteredOrders.filter(order => order.payment_status === 'Lunas').reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0), [filteredOrders]);
+    const productSummary = useMemo(() => filteredOrders.filter(order => order.payment_status === 'Lunas').reduce((acc, order) => {
+        order.items?.forEach((item) => {
+            const productName = item.product || 'Unknown Product';
+            if (!acc[productName]) acc[productName] = { qty: 0, total: 0 };
+            acc[productName].qty += (item.qty || 0);
+            acc[productName].total += (item.price || 0) * (item.qty || 0);
+        });
+        return acc;
+    }, {}), [filteredOrders]);
 
-                // Handle khusus jika filterType bukan Booking tapi ordernya Booking
-                if (order.type === 'Booking' && filterType !== 'booking') {
-                    // Jika user ingin filter Dine In, maka Booking jangan muncul
-                    // Kecuali Anda ingin Booking muncul di 'all' saja
-                    if (filterType !== 'all') return false;
-                } else {
-                    if (order.type.toLowerCase() !== typeMap[filterType]?.toLowerCase()) return false;
-                }
-            }
-
-            if (filterPayment !== "all") {
-                if (order.payment_status !== filterPayment) return false;
-            }
-
-            if (searchText) {
-                const searchLower = searchText.toLowerCase();
-                // ... (logika search tetap sama)
-                const itemMatch = order.items?.some(item => item.product?.toLowerCase().includes(searchLower));
-                // Tambahkan pencarian berdasarkan nama ruangan juga jika perlu
-                const bookingMatch = order.bookings?.some(b => b.room_name?.toLowerCase().includes(searchLower));
-
-                return (
-                    order.name?.toLowerCase().includes(searchLower) ||
-                    order.location?.toLowerCase().includes(searchLower) ||
-                    order.id?.toString().includes(searchLower) ||
-                    itemMatch ||
-                    bookingMatch // Tambahkan ini
-                );
-            }
-            return true;
-        }), [orders, filterStatus, filterType, filterPayment, searchText]);
-
-    const totalSales = useMemo(() =>
-        filteredOrders
-            .filter(order => order.payment_status === 'Lunas')
-            .reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0)
-        , [filteredOrders]);
-
-    const productSummary = useMemo(() => filteredOrders
-        .filter(order => order.payment_status === 'Lunas')
-        .reduce((acc, order) => {
-            order.items?.forEach((item) => {
-                const productName = item.product || 'Unknown Product';
-                if (!acc[productName]) acc[productName] = { qty: 0, total: 0 };
-                acc[productName].qty += (item.qty || 0);
-                acc[productName].total += (item.price || 0) * (item.qty || 0);
-            });
-            return acc;
-        }, {})
-        , [filteredOrders]);
-
-    const topProducts = useMemo(() => Object.entries(productSummary)
-        .map(([product, data], index) => ({
-            key: index + 1,
-            item: product,
-            qty: data.qty,
-            total: formatRupiah(data.total),
-        }))
-        .sort((a, b) => b.qty - a.qty)
-        .slice(0, 10)
-        , [productSummary]);
+    const topProducts = useMemo(() => Object.entries(productSummary).map(([product, data], index) => ({
+        key: index + 1, item: product, qty: data.qty, total: formatRupiah(data.total),
+    })).sort((a, b) => b.qty - a.qty).slice(0, 10), [productSummary]);
 
     const tenantSummary = useMemo(() => {
-        const summary = filteredOrders
-            .filter(order => order.payment_status === 'Lunas')
-            .reduce((acc, order) => {
-                order.items?.forEach((item) => {
-                    const tenantName = item.tenant_name || 'Lainnya';
-                    if (!acc[tenantName]) acc[tenantName] = 0;
-                    acc[tenantName] += (item.price || 0) * (item.qty || 0);
-                });
-                return acc;
-            }, {});
-
-        return Object.entries(summary).map(([tenantName, total]) => ({
-            type: tenantName,
-            value: total,
-        }));
+        const summary = filteredOrders.filter(order => order.payment_status === 'Lunas').reduce((acc, order) => {
+            order.items?.forEach((item) => {
+                const tenantName = item.tenant_name || 'Lainnya';
+                if (!acc[tenantName]) acc[tenantName] = 0;
+                acc[tenantName] += (item.price || 0) * (item.qty || 0);
+            });
+            return acc;
+        }, {});
+        return Object.entries(summary).map(([tenantName, total]) => ({ type: tenantName, value: total }));
     }, [filteredOrders]);
 
-    const totalTenantSales = useMemo(() =>
-        tenantSummary.reduce((sum, item) => sum + item.value, 0)
-        , [tenantSummary]);
+    const totalTenantSales = useMemo(() => tenantSummary.reduce((sum, item) => sum + item.value, 0), [tenantSummary]);
+    const chartDataWithTooltip = useMemo(() => {
+        return tenantSummary.map(item => {
+            const percentage = totalTenantSales > 0 ? ((item.value / totalTenantSales) * 100).toFixed(1) : 0;
+            return { ...item, tooltipInfo: `${formatRupiah(item.value)} (${percentage}%)` };
+        });
+    }, [tenantSummary, totalTenantSales]);
 
     const pieConfig = {
-        data: tenantSummary,
-        angleField: 'value',
-        colorField: 'type',
-        color: CHART_COLORS,
-        radius: 0.85,
-        innerRadius: 0.6,
-        label: { type: 'inner', offset: '-50%', content: '{value}', style: { textAlign: 'center', fontSize: 12, fill: '#fff' } },
-        legend: false,
-        tooltip: false,
-        interactions: [{ type: 'element-selected' }, { type: 'element-active' }],
-        animation: { appear: { animation: 'wave-in', duration: 500 } },
+        data: chartDataWithTooltip, angleField: 'value', colorField: 'type', color: CHART_COLORS,
+        radius: 0.85, innerRadius: 0.65, label: false, legend: false,
+        tooltip: { title: (datum) => datum.type, items: [(datum) => ({ name: 'Penjualan', value: datum.tooltipInfo })] },
+        interactions: [{ type: 'element-active' }],
     };
 
-    // --- Handler Modal ---
-    const handleOrderClick = (order) => {
-        setSelectedOrder(order);
-        setIsModalVisible(true);
-    };
-
-    const handleCloseDetail = () => {
-        setIsModalVisible(false);
-        setTimeout(() => setSelectedOrder(null), 300);
-    };
+    const handleOrderClick = (order) => { setSelectedOrder(order); setIsModalVisible(true); };
+    const handleCloseDetail = () => { setIsModalVisible(false); setTimeout(() => setSelectedOrder(null), 300); };
 
     const handleMarkAsPaid = async () => {
         if (isHistoryMode) return;
-        if (!selectedOrder || selectedOrder.payment_status === 'Lunas' || selectedOrder.payment_status === 'Disimpan') return;
         setIsUpdating(true);
         try {
             await updatePaymentStatus(selectedOrder.id);
-            message.success(`Transaksi #${selectedOrder.id} telah ditandai Lunas.`);
-            handleCloseDetail();
-            await fetchAndCheckOrders(false);
-        } catch (error) {
-            console.error("Error updating payment status:", error);
-            message.error(`Gagal memperbarui status: ${error.message || 'Error tidak diketahui'}`);
-        } finally {
-            setIsUpdating(false);
-        }
+            message.success(`Transaksi #${selectedOrder.id} Lunas.`);
+            handleCloseDetail(); fetchAndCheckOrders(false);
+        } catch (error) { message.error(`Gagal: ${error.message}`); } finally { setIsUpdating(false); }
     };
 
     const handleMarkAsBatal = async () => {
         if (isHistoryMode) return;
-        if (!selectedOrder || selectedOrder.payment_status === 'Lunas' || selectedOrder.payment_status === 'Disimpan') return;
         setIsUpdating(true);
         try {
             await updateBatalStatus(selectedOrder.id);
-            message.success(`Transaksi #${selectedOrder.id} telah ditandai Dibatalkan.`);
-            handleCloseDetail();
-            await fetchAndCheckOrders(false);
-        } catch (error) {
-            console.error("Error updating payment status:", error);
-            message.error(`Gagal memperbarui status: ${error.message || 'Error tidak diketahui'}`);
-        } finally {
-            setIsUpdating(false);
-        }
+            message.success(`Transaksi #${selectedOrder.id} Dibatalkan.`);
+            handleCloseDetail(); fetchAndCheckOrders(false);
+        } catch (error) { message.error(`Gagal: ${error.message}`); } finally { setIsUpdating(false); }
     };
 
     const handleContinueOrder = () => {
-        if (isHistoryMode) return;
-        if (!selectedOrder || selectedOrder.payment_status !== 'Disimpan') return;
-        handleCloseDetail();
-        navigate('/orderkasir', { state: { savedOrderId: selectedOrder.id } });
+        handleCloseDetail(); navigate('/orderkasir', { state: { savedOrderId: selectedOrder.id } });
     };
 
-    // --- FITUR CETAK ULANG ---
-    const handlePrintReceipt = () => {
+    // ==========================================
+    // 🖨️ FUNGSI BLUETOOTH PRINTER (BARU)
+    // ==========================================
+    const scanBluetooth = async () => {
+        setIsScanning(true);
+        try {
+            const isEnabled = await BluetoothSerial.isEnabled();
+            if (!isEnabled) {
+                message.warning("Harap nyalakan Bluetooth HP Anda!");
+                setIsScanning(false);
+                return;
+            }
+            // Mengambil daftar device yang sudah pernah di-pairing di setting HP
+            const pairedDevices = await BluetoothSerial.list();
+            setDevices(pairedDevices);
+            if(pairedDevices.length === 0) {
+                message.info("Tidak ada perangkat. Pairing printer Anda di pengaturan Bluetooth HP dulu ya.");
+            }
+        } catch (error) {
+            console.error("Gagal scan bluetooth:", error);
+            message.error("Gagal mendeteksi perangkat Bluetooth. Pastikan ini dijalankan di HP Android.");
+        } finally {
+            setIsScanning(false);
+        }
+    };
+
+    const selectPrinter = (mac, name) => {
+        localStorage.setItem('printerMacAddress', mac);
+        localStorage.setItem('printerName', name);
+        setSavedPrinterMac(mac);
+        setSavedPrinterName(name);
+        setIsPrinterModalOpen(false);
+        message.success(`Printer ${name} berhasil dipilih!`);
+    };
+
+    const handlePrintReceipt = async () => {
         if (!selectedOrder) return;
+        
+        if (!savedPrinterMac) {
+            message.warning("Pilih printer terlebih dahulu!");
+            setIsPrinterModalOpen(true);
+            scanBluetooth();
+            return;
+        }
 
-        console.log("Tombol Cetak Struk diklik...");
         setIsPrinting(true);
+        message.info("Menghubungkan ke printer...");
 
-        // Hitung Diskon Manual
-        const discountNominal = (selectedOrder.subtotal + selectedOrder.tax_nominal) - selectedOrder.price;
-        const fixedDiscount = discountNominal > 0.01 ? discountNominal : 0;
+        try {
+            // Cek Bluetooth Aktif
+            const isEnabled = await BluetoothSerial.isEnabled();
+            if (!isEnabled) {
+                message.warning("Nyalakan Bluetooth terlebih dahulu!");
+                setIsPrinting(false);
+                return;
+            }
 
-        // Format F&B Items
-        const formattedFnbItems = (selectedOrder.items || []).map(item => ({
-            name: item.product || 'Item F&B',
-            qty: item.qty,
-            price: item.price,
-            note: item.note
-        }));
+            try {
+                // Koneksi ke MAC Address yang tersimpan
+                await BluetoothSerial.connect(savedPrinterMac);
+            } catch (connErr) {
+                console.error("Koneksi gagal/sudah terkoneksi:", connErr);
+            }
 
-        // Format Booking Items
-        const formattedBookingItems = (selectedOrder.bookings || []).map(booking => {
-            const startTime = dayjs(booking.start_time);
-            const durationHours = (booking.duration || 0) / 60;
+            const discountNominal = (selectedOrder.subtotal + selectedOrder.tax_nominal) - selectedOrder.price;
+            const fixedDiscount = discountNominal > 0.01 ? discountNominal : 0;
+            const waktuOrder = dayjs(selectedOrder.time).format("DD/MM/YYYY HH:mm");
+            const namaKasir = namaKasirLogin + (isHistoryMode ? " (Arsip)" : "");
 
-            return {
-                name: booking.room_name || 'Ruangan',
-                price: booking.booked_price,
-                bookingData: {
-                    durasi_jam: durationHours,
-                    waktu_mulai_jam: startTime.hour(),
-                }
-            };
-        });
+            // Format Struk (Lebar 32 Karakter)
+            let struk = "";
+            struk += "          POS DAGO HUB          \n";
+            struk += "    Creative Hub & Coffee Lab   \n";
+            struk += "================================\n";
+            struk += `Order ID : #${selectedOrder.id}\n`;
+            struk += `Waktu    : ${waktuOrder}\n`;
+            struk += `Kasir    : ${namaKasir}\n`;
+            struk += `Tamu     : ${selectedOrder.name}\n`;
+            if (selectedOrder.location && selectedOrder.location !== '-') {
+                struk += `Lokasi   : ${selectedOrder.location}\n`;
+            }
+            struk += "--------------------------------\n";
 
-        // Format Voucher (AMBIL DARI DATA DB YANG SUDAH DI-FETCH)
-        const formattedVouchers = (selectedOrder.vouchers || []).map(v => ({
-            profile: v.profile, // ex: shop-2h
-            code: v.code        // ex: s25kjr9f
-        }));
+            if (selectedOrder.items && selectedOrder.items.length > 0) {
+                selectedOrder.items.forEach(item => {
+                    struk += `${item.product}\n`;
+                    const qtyPrice = `  ${item.qty} x ${item.price}`;
+                    const totalLine = `${item.qty * item.price}`;
+                    const spaces = 32 - qtyPrice.length - totalLine.length;
+                    struk += qtyPrice + " ".repeat(Math.max(0, spaces)) + totalLine + "\n";
+                    if (item.note) struk += `  (*${item.note})\n`;
+                });
+            }
 
-        let printerPaymentMethod = selectedOrder.payment_method;
-        if (printerPaymentMethod && printerPaymentMethod.toUpperCase() === 'TUNAI') {
-            printerPaymentMethod = 'CASH';
-        }
+            if (selectedOrder.bookings && selectedOrder.bookings.length > 0) {
+                selectedOrder.bookings.forEach(b => {
+                    const durasi = (b.duration || 0) / 60;
+                    struk += `${b.room_name}\n`;
+                    const qtyPrice = `  ${durasi} Jam`;
+                    const totalLine = `${b.booked_price}`;
+                    const spaces = 32 - qtyPrice.length - totalLine.length;
+                    struk += qtyPrice + " ".repeat(Math.max(0, spaces)) + totalLine + "\n";
+                });
+            }
 
-        const dataToPrint = {
-            id: selectedOrder.id,
-            time: selectedOrder.time,
-            cashier: namaKasirLogin + (isHistoryMode ? " (Arsip)" : ""),
-            customer: selectedOrder.name,
-            location: selectedOrder.location,
-            items: formattedFnbItems,
-            bookings: formattedBookingItems,
-            vouchers: formattedVouchers, // Kirim Voucher ke Flutter
+            struk += "--------------------------------\n";
+            struk += `Subtotal : Rp ${selectedOrder.subtotal}\n`;
+            if (selectedOrder.tax_nominal > 0) struk += `Pajak    : Rp ${selectedOrder.tax_nominal}\n`;
+            if (fixedDiscount > 0) struk += `Diskon   : -Rp ${fixedDiscount}\n`;
+            struk += `TOTAL    : Rp ${selectedOrder.price}\n`;
+            struk += "================================\n";
 
-            subtotal: selectedOrder.subtotal,
-            tax: selectedOrder.tax_nominal,
-            discount: fixedDiscount,
-            total: selectedOrder.price,
-            paymentMethod: printerPaymentMethod,
-            tunai: selectedOrder.uang_diterima || 0,
-            kembali: selectedOrder.kembalian || 0
-        };
+            if (selectedOrder.payment_method === 'Tunai' && selectedOrder.uang_diterima > 0) {
+                struk += `Tunai    : Rp ${selectedOrder.uang_diterima}\n`;
+                struk += `Kembali  : Rp ${selectedOrder.kembalian}\n`;
+                struk += "================================\n";
+            }
 
-        if (window.flutter_inappwebview) {
-            console.log("Mengirim data ke printer:", dataToPrint);
-            window.flutter_inappwebview.callHandler('flutterPrintHandler', dataToPrint);
-            message.info("Mencetak struk...");
-        } else {
-            message.error("Printer tidak ditemukan (Mode Web).");
-            console.log("Data Print:", dataToPrint);
-        }
+            if (selectedOrder.vouchers && selectedOrder.vouchers.length > 0) {
+                struk += "          VOUCHER WIFI          \n";
+                struk += "--------------------------------\n";
+                selectedOrder.vouchers.forEach(v => {
+                    struk += `Profile  : ${v.profile}\n`;
+                    struk += `Code     : ${v.code}\n`;
+                    struk += "--------------------------------\n";
+                });
+            }
 
-        setTimeout(() => {
+            struk += "   Terima Kasih Atas Kunjungan  \n";
+            struk += "            Anda!               \n";
+            struk += "\n\n\n"; 
+
+            await BluetoothSerial.write(struk);
+            await BluetoothSerial.disconnect();
+            
+            message.success("Struk berhasil dicetak!");
+
+        } catch (error) {
+            console.error("Bluetooth Print Error:", error);
+            message.warning("Gagal cetak via Bluetooth. Pastikan ini dijalankan di HP Android dan Printer nyala.");
+        } finally {
             setIsPrinting(false);
-        }, 2000);
+        }
     };
 
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden">
             {/* LEFT PANEL */}
             <div className="flex-1 bg-white p-5 overflow-y-auto rounded-r-3xl shadow-inner custom-scrollbar">
-                {/* Header & Search ... (Sama) */}
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
                         {isHistoryMode && (
-                            <Button
-                                icon={<ArrowLeftOutlined />}
-                                type="text"
-                                onClick={() => navigate('/kasir/buka-sesi')}
-                                className="mr-2"
-                            />
+                            <Button icon={<ArrowLeftOutlined />} type="text" onClick={() => navigate('/kasir/buka-sesi')} className="mr-2" />
                         )}
                         <div>
                             <h2 className="text-lg font-bold text-gray-800">
@@ -478,12 +404,22 @@ const TransaksiKasir = () => {
                             <p className="text-sm text-gray-500">Dago Creative Hub & Coffee Lab</p>
                         </div>
                     </div>
+                    {/* ✅ TOMBOL SETTING PRINTER */}
+                    <div>
+                        <Button 
+                            icon={<SettingOutlined />} 
+                            onClick={() => { setIsPrinterModalOpen(true); scanBluetooth(); }}
+                            className="text-gray-500"
+                        >
+                            Printer: <span className="font-semibold text-blue-600 ml-1">{savedPrinterName}</span>
+                        </Button>
+                    </div>
                 </div>
+
                 <div className="pb-3">
                     <Input.Search placeholder="Cari ID, nama customer, lokasi/ruangan, atau produk..." value={searchText} onChange={(e) => setSearchText(e.target.value)} className="rounded-lg" allowClear />
                 </div>
 
-                {/* Filters ... (Sama) */}
                 <div className="flex flex-wrap gap-3 justify-between items-center mb-5">
                     <div className="flex flex-wrap gap-3 items-center">
                         <Select value={filterStatus} onChange={setFilterStatus} className="w-full md:w-auto md:min-w-[180px]">
@@ -492,7 +428,6 @@ const TransaksiKasir = () => {
                             <Option value="Diproses">Diproses</Option>
                             <Option value="Selesai">Selesai</Option>
                             <Option value="Batal">Batal</Option>
-                            <Option value="Sebagian Diproses">Sebagian Diproses</Option>
                         </Select>
                         <Select value={filterType} onChange={setFilterType} className="w-full md:w-auto md:min-w-[180px]">
                             <Option value="all">Semua Tipe Order F&B</Option>
@@ -509,18 +444,11 @@ const TransaksiKasir = () => {
                             <Option value="Dibatalkan">Dibatalkan</Option>
                         </Select>
                     </div>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => navigate('/buatorderkasir')}
-                        className="rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
-                        disabled={isHistoryMode}
-                    >
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/buatorderkasir')} className="rounded-lg shadow-sm" disabled={isHistoryMode}>
                         Order Baru
                     </Button>
                 </div>
 
-                {/* Order List */}
                 <h3 className="font-semibold mb-2 text-gray-700">Transaksi F&B ({filteredOrders.length})</h3>
                 <div className="space-y-3">
                     {loading ? (
@@ -537,7 +465,7 @@ const TransaksiKasir = () => {
                 </div>
             </div>
 
-            {/* RIGHT PANEL (Summary) ... (Sama) */}
+            {/* RIGHT PANEL (Summary) */}
             <div className="w-80 bg-gray-50 p-5 flex flex-col gap-4 h-full overflow-hidden border-l border-gray-200">
                 <div className="flex justify-between bg-white rounded-xl p-4 shadow-sm flex-shrink-0">
                     <div>
@@ -560,27 +488,6 @@ const TransaksiKasir = () => {
                                     <img src="/img/logo_dago.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                 </div>
                             </div>
-                            {/* Legend ... (Sama) */}
-                            <div className="mt-2 px-1">
-                                <div className="space-y-2">
-                                    {tenantSummary.map((item, index) => {
-                                        const percentage = totalTenantSales > 0 ? (item.value / totalTenantSales) * 100 : 0;
-                                        const color = CHART_COLORS[index % CHART_COLORS.length];
-                                        return (
-                                            <div key={item.type} className="flex flex-col space-y-0.5">
-                                                <div className="flex justify-between items-center text-xs">
-                                                    <div className="flex items-center">
-                                                        <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: color, marginRight: 6 }}></div>
-                                                        <span className="font-medium text-gray-700 truncate max-w-[120px]" title={item.type}>{item.type}</span>
-                                                    </div>
-                                                    <span className="font-bold text-gray-800">{percentage.toFixed(1)}%</span>
-                                                </div>
-                                                <Progress percent={percentage} showInfo={false} strokeColor={color} trailColor="#f3f4f6" size="small" style={{ margin: 0, height: 4 }} />
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
                         </div>
                     ) : (
                         <div className="flex justify-center items-center h-[280px] text-gray-400">Tidak ada data.</div>
@@ -597,7 +504,42 @@ const TransaksiKasir = () => {
                 </div>
             </div>
 
-            {/* Modal Detail */}
+            {/* ✅ MODAL PILIH PRINTER */}
+            <Modal
+                title="Pilih Printer Bluetooth"
+                open={isPrinterModalOpen}
+                onCancel={() => setIsPrinterModalOpen(false)}
+                footer={[
+                    <Button key="scan" onClick={scanBluetooth} loading={isScanning}>Scan Ulang</Button>,
+                    <Button key="close" onClick={() => setIsPrinterModalOpen(false)}>Tutup</Button>
+                ]}
+            >
+                <div className="space-y-3 mt-4">
+                    <Alert message="Pastikan Printer Kasir sudah Anda Pairing (Hubungkan) di menu Pengaturan Bluetooth HP Android Anda." type="info" showIcon className="mb-4" />
+                    
+                    {isScanning ? (
+                        <div className="text-center py-6"><Spin tip="Mencari perangkat bluetooth..." /></div>
+                    ) : devices.length === 0 ? (
+                        <div className="text-center py-6 text-gray-400">Tidak ada perangkat Bluetooth tersimpan.</div>
+                    ) : (
+                        devices.map((dev) => (
+                            <div
+                                key={dev.address}
+                                onClick={() => selectPrinter(dev.address, dev.name)}
+                                className={`p-4 border rounded-lg cursor-pointer flex justify-between items-center transition-all ${savedPrinterMac === dev.address ? 'bg-blue-50 border-blue-400' : 'hover:bg-gray-50'}`}
+                            >
+                                <div>
+                                    <p className="font-bold text-gray-800">{dev.name || 'Unknown Device'}</p>
+                                    <p className="text-xs text-gray-500">{dev.address}</p>
+                                </div>
+                                {savedPrinterMac === dev.address && <Tag color="blue">Terpilih</Tag>}
+                            </div>
+                        ))
+                    )}
+                </div>
+            </Modal>
+
+            {/* Modal Detail Transaksi */}
             <Modal
                 title={<span className="text-lg font-semibold text-gray-800">Detail Order #{selectedOrder?.id || ""} - {selectedOrder?.name || ""}</span>}
                 open={isModalVisible}
@@ -686,7 +628,6 @@ const TransaksiKasir = () => {
                             </Descriptions>
                         </div>
 
-                        {/* Tampilkan Voucher jika ada (Opsional untuk ditampilkan di Modal juga) */}
                         {selectedOrder.vouchers && selectedOrder.vouchers.length > 0 && (
                             <div className="mt-4 border-t pt-3">
                                 <h4 className="font-semibold mb-2 text-gray-800">Voucher WiFi:</h4>

@@ -47,7 +47,7 @@ const SidebarKasir = ({ children }) => {
         { name: "Product", icon: <BsBox2 />, path: "/productkasir" },
         { name: "History", icon: <MdOutlineHistory />, path: "/historykasir" },
         //{ name: "Space", icon: <MdOutlineChair />, path: "/spacekasir" },
-        { name: "Laporan Pembayaran", icon: <MdMoney />, path: "/laporanpembayarankasir" },
+        //{ name: "Laporan Pembayaran", icon: <MdMoney />, path: "/laporanpembayarankasir" },
         { name: "Settings", icon: <IoSettingsOutline />, path: "/settingskasir" },
         {
             name: "Logout",

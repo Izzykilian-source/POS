@@ -1,6 +1,22 @@
+/* ==========================================================================
+   TEMA MODERN UNTUK FLOAT BUTTON ANT DESIGN
+   ========================================================================== */
+
+/* Mengubah warna dasar menjadi Indigo dan menambahkan bayangan halus */
 .ant-float-btn {
-  background-color: #E95322 !important;
+  background-color: #4f46e5 !important; /* Warna Indigo-600 */
+  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4), 0 8px 10px -6px rgba(79, 70, 229, 0.1) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
+
+/* Efek saat tombol disentuh/dihover (Warna lebih gelap & sedikit membesar) */
+.ant-float-btn:hover {
+  background-color: #4338ca !important; /* Warna Indigo-700 */
+  transform: scale(1.05) translateY(-2px) !important;
+  box-shadow: 0 12px 28px -5px rgba(79, 70, 229, 0.5) !important;
+}
+
+/* Memastikan warna ikon di dalamnya tetap putih cerah */
 .ant-float-btn .anticon {
-  color: white !important;
+  color: #ffffff !important;
 }

@@ -42,7 +42,8 @@ import {
     getRoomsToday,
     saveOrderKasir,
     getSavedOrderDetails,
-    paySavedOrder
+    paySavedOrder,
+    updateBatalStatus,
 } from "../../../services/service";
 import { MdOutlineShoppingCart } from "react-icons/md";
 import { FaRegIdCard } from "react-icons/fa";
@@ -131,43 +132,66 @@ const OrderKasir = () => {
     const [editingOrderId, setEditingOrderId] = useState(null);
     const [isPrinting, setIsPrinting] = useState(false);
 
-    const resetOrderState = useCallback(() => {
-        setSelectedItems([]);
-        // Reset Diskon
-        setDiscountType("percent");
-        setDiscountValue(0);
-        
-        setCashInput(0);
-        setCustomerName("Guest");
-        setRoom(null);
-        setCurrentOrderType("dinein");
-        setCurrentOrderNumber(generateOrderNumber());
-        setSelectedPaymentMethod(null);
-        setPaymentSuccess(false);
-        setEditingOrderId(null);
-        setIsStrukModalVisible(false);
-        setIsCashPaymentModalVisible(false);
-        setIsDiscountModalVisible(false);
-        setIsNewOrderModalVisible(false);
-        setIsAddNoteModalVisible(false);
-        
-        // --- PERBAIKAN: Memisahkan resetFields dan setFieldsValue agar tidak error nameList.map ---
-        newOrderForm.resetFields();
-        newOrderForm.setFieldsValue({
-            customerName: "Guest",
-            orderType: "dinein",
-            room: null
-        });
-        // -----------------------------------------------------------------------------------------
-        
-        discountForm.resetFields();
-        addNoteForm.resetFields();
-        setSearchProductQuery("");
-        setSelectedMerchant("all_merchants");
-        setSelectedProductType("all_types");
-        console.log("Order state reset.");
-    }, [newOrderForm, discountForm, addNoteForm]);
+  const resetOrderState = useCallback(() => {
+    // Reset semua state internal
+    setSelectedItems([]);
+    setDiscountType("percent");
+    setDiscountValue(0);
+    setCashInput(0);
+    setCustomerName("Guest");
+    setRoom(null);
+    setCurrentOrderType("dinein");
+    setCurrentOrderNumber(generateOrderNumber());
+    setSelectedPaymentMethod(null);
+    setPaymentSuccess(false);
+    setEditingOrderId(null);
+    setIsStrukModalVisible(false);
+    setIsCashPaymentModalVisible(false);
+    setIsDiscountModalVisible(false);
+    setIsNewOrderModalVisible(false);
+    setIsAddNoteModalVisible(false);
 
+    // Reset Form AntD
+    newOrderForm.resetFields();
+    newOrderForm.setFieldsValue({
+        customerName: "Guest",
+        orderType: "dinein",
+        room: null
+    });
+    
+    // FIX: Navigasi balik ke dashboard sambil membuang 'state' di memori URL browser
+    navigate('/transaksikasir', { replace: true, state: {} });
+    
+    console.log("Order state reset and history cleared.");
+}, [newOrderForm, navigate]);
+
+// --- TEMPELKAN DI BAWAH resetOrderState ---
+const handleCancelAndDeleteOrder = async () => {
+    // Jika hanya order baru di layar, langsung balik dashboard
+    if (!editingOrderId) {
+        resetOrderState();
+        return;
+    }
+
+    try {
+        setIsProcessing(true);
+        console.log("Membatalkan Order ID:", editingOrderId);
+        
+        // PANGGIL FUNGSI BATAL YANG SUDAH ADA DI BACKEND MAS IZZY
+        await updateBatalStatus(editingOrderId); 
+        
+        message.success(`Order #${editingOrderId} berhasil dibatalkan.`);
+        
+        // Setelah sukses dibatalkan di DB, bersihkan layar & balik dashboard
+        resetOrderState(); 
+        
+    } catch (error) {
+        console.error("Gagal membatalkan order:", error);
+        message.error("Gagal membatalkan order dari server.");
+    } finally {
+        setIsProcessing(false);
+    }
+};
     // useEffect for initialState
     useEffect(() => {
         if (initialState.customerName || initialState.orderType) {
@@ -1074,10 +1098,13 @@ const OrderKasir = () => {
                             <Button size="large" type="primary" className="bg-blue-500 hover:bg-blue-600 border-none text-white" icon={<PercentageOutlined />} onClick={showDiscountModal}>
                                 Discount
                             </Button>
-                            <Button danger size="large" className="text-white border-none bg-red-500 hover:bg-red-600" onClick={() => {
-                                resetOrderState();
-                                message.warning(`Order ${editingOrderId ? `#${editingOrderId}` : "saat ini"} dibatalkan.`);
-                            }}>
+                           <Button 
+                                danger 
+                                size="large" 
+                                className="text-white border-none bg-red-500 hover:bg-red-600" 
+                                onClick={handleCancelAndDeleteOrder} // Ganti ke fungsi ini
+                                loading={isProcessing}
+                            >
                                 Cancel Order
                             </Button>
                         </div>

@@ -1,0 +1,9 @@
+# Blokir Kunci Android
+*.jks
+*.keystore
+
+# Blokir Folder Berat & Hasil Build
+node_modules/
+dist/
+build/
+android/app/release/

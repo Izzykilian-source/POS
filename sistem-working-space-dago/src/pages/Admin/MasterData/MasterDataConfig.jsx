@@ -1,6 +1,7 @@
 import {
     UserOutlined,
     ShopOutlined,
+    EnvironmentOutlined,
 } from "@ant-design/icons";
 import {
     MessageCircleQuestion
@@ -8,10 +9,11 @@ import {
 
 // Import tab pages (Yang aktif untuk F&B)
 import UserTab from "./tabs/UserTab";
-import TenantTab from "./tabs/TenantTab";
+//import TenantTab from "./tabs/TenantTab";
 import ProductKategoriTab from "./tabs/ProductKategoriTab";
 import ProductTab from "./tabs/ProductTab";
 import PromoTab from "./tabs/PromoTab";
+import MasterLokasi from "./tabs/MasterLokasi";
 import CoaadminTab from "./tabs/CoaadminTab";
 import FAQTab from "./tabs/FAQTab";
 import SettingsTab from "./tabs/SettingsTab";
@@ -39,13 +41,13 @@ export const tabsConfig = [
         icon: UserOutlined,
         component: <UserTab />,
     },
-    {
-        key: "tenant",
-        path: "tenant",
-        label: "Tenant",
-        icon: ShopOutlined,
-        component: <TenantTab />,
-    },
+    //{
+      //  key: "tenant",
+       // path: "tenant",
+       // label: "Tenant",
+       // icon: ShopOutlined,
+       // component: <TenantTab />,
+   // },
     {
         key: "productkategori",
         path: "productkategori",
@@ -115,20 +117,29 @@ export const tabsConfig = [
         icon: MdDiscount,
         component: <PromoTab />,
     },
+    //{
+     //   key: "COA",
+       // path: "COA",
+       // label: "COA",
+        //icon: MdBook,
+        //component: <CoaadminTab />,
+    //},
+   // {
+      //  key: "FAQtab",
+      //  path: "FAQtab",
+      //  label: "FAQ",
+      //  icon: MessageCircleQuestion,
+      //  component: <FAQTab />,
+    //},
+    // --- TAMBAHKAN TAB MASTER LOKASI DISINI ---
     {
-        key: "COA",
-        path: "COA",
-        label: "COA",
-        icon: MdBook,
-        component: <CoaadminTab />,
+        key: "lokasi",
+        path: "lokasi",
+        label: "Lokasi Tempat Duduk",
+        icon: EnvironmentOutlined,
+        component: <MasterLokasi />,
     },
-    {
-        key: "FAQtab",
-        path: "FAQtab",
-        label: "FAQ",
-        icon: MessageCircleQuestion,
-        component: <FAQTab />,
-    },
+    // ------------------------------------------
     {
         key: "settings",
         path: "settings",

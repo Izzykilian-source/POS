@@ -45,7 +45,7 @@ from api.coadmin.endpoints import coaadmin_endpoints
 from api.faq.endpoints import faq_endpoints
 from api.callback.endpoints import callback_endpoints
 from api.setting_endpoint.endpoints import settings_endpoints
-
+from api.masterlokasi.endpoints import masterlokasi_endpoints
 from config import Config
 from static.static_file_server import static_file_server
 from doc_endpoint.doc_file_server import doc_file_server
@@ -90,7 +90,7 @@ app.register_blueprint(coaadmin_endpoints, url_prefix='/api/v1/coaadmin')
 app.register_blueprint(faq_endpoints, url_prefix='/api/v1/faq')
 app.register_blueprint(callback_endpoints, url_prefix='/api/callback')
 app.register_blueprint(settings_endpoints, url_prefix='/api/v1/settings')
-
+app.register_blueprint(masterlokasi_endpoints, url_prefix='/api/v1')
 # --- SETUP SCHEDULER (BARU) ---
 def start_scheduler():
     # Inisialisasi scheduler

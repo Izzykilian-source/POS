@@ -131,7 +131,6 @@ const PromoTab = () => {
             render: (text) => <Text strong>{text}</Text>,
             ...getColumnSearchProps("kode_promo", "Cari kode promo..."),
         },
-        // ✅ KOLOM BARU: KATEGORI
         {
             title: "Kategori",
             dataIndex: "kategori_promo",
@@ -280,13 +279,12 @@ const PromoTab = () => {
         if (!formData.kode_promo || formData.kode_promo.trim() === "") errors.kode_promo = true;
         if (!formData.nilai_diskon || formData.nilai_diskon <= 0) errors.nilai_diskon = true;
         if (!formData.tanggal_mulai) errors.tanggal_mulai = true;
-        // ✅ Validasi Kategori
         if (!formData.kategori_promo) errors.kategori_promo = true;
         
         // Validasi JSON Syarat
         if (formData.syarat && !isValidJson(formData.syarat)) {
             errors.syarat = true;
-            showNotif("error", "Format Salah", "Field Syarat harus dalam format JSON yang valid (contoh: {\"min_belanja\": 50000})");
+            showNotif("error", "Format Salah", "Field Syarat harus dalam format JSON yang valid (contoh: {\"min_transaksi\": 50000})");
         }
 
         if (Object.keys(errors).length > 0) {
@@ -351,7 +349,6 @@ const PromoTab = () => {
             }
         }
 
-        // ✅ Pastikan kategori_promo terisi, fallback ke 'all' jika null
         setFormData({ 
             ...promo, 
             syarat: syaratString,
@@ -363,7 +360,6 @@ const PromoTab = () => {
 
     const handleCancel = () => {
         setOpen(false);
-        // ✅ Reset ke default value saat cancel
         setFormData({ status_aktif: "inaktif", syarat: "", kategori_promo: "all" });
         setEditingPromo(null);
         setValidationErrors({});
@@ -371,7 +367,6 @@ const PromoTab = () => {
 
     const handleAddClick = () => {
         setEditingPromo(null);
-        // ✅ Reset ke default value saat add new
         setFormData({ status_aktif: "inaktif", syarat: "", kategori_promo: "all" });
         setValidationErrors({});
         setOpen(true);
@@ -461,7 +456,6 @@ const PromoTab = () => {
                             </div>
                         </Col>
                         
-                        {/* ✅ INPUT KATEGORI PROMO BARU */}
                         <Col span={12}>
                             <div style={{ marginBottom: 16 }}>
                                 <Text strong>
@@ -488,10 +482,10 @@ const PromoTab = () => {
                         <Col span={12}>
                             <div style={{ marginBottom: 16 }}>
                                 <Text strong>
-                                    Nilai Diskon (Rp) <span style={{ color: "red" }}>*</span>
+                                    Nilai Diskon (Rp / %) <span style={{ color: "red" }}>*</span>
                                 </Text>
                                 <InputNumber
-                                    placeholder="cth: 5000"
+                                    placeholder="cth: 50000 atau 10 (untuk 10%)"
                                     value={formData.nilai_diskon}
                                     onChange={(value) => handleChange("nilai_diskon", value)}
                                     style={{ marginTop: "8px", width: "100%" }}
@@ -536,7 +530,6 @@ const PromoTab = () => {
                                 />
                             </div>
                         </Col>
-                        {/* Space kosong agar rapi jika diperlukan, atau biarkan kosong */}
                     </Row>
 
                     <div style={{ marginBottom: 16 }}>
@@ -550,16 +543,17 @@ const PromoTab = () => {
                         />
                     </div>
 
+                    {/* ✅ BAGIAN S&K DIPERBAIKI INSTRUKSI DAN PLACEHOLDERNYA */}
                     <div style={{ marginBottom: 16 }}>
                         <Space align="center" style={{ marginBottom: 8 }}>
                             <Text strong>Syarat & Ketentuan (Format JSON)</Text>
-                            <Tooltip title='Contoh: {"min_transaction": 50000} atau {"min_durasi_jam": 3}. Kosongkan jika tidak ada.'>
+                            <Tooltip title='Wajib format JSON. Gunakan "min_transaksi" untuk batas minimal belanja. Contoh: {"min_transaksi": 50000}'>
                                 <InfoCircleOutlined style={{ color: '#1890ff' }} />
                             </Tooltip>
                         </Space>
                         <TextArea
-                            rows={4}
-                            placeholder='Contoh: {"min_durasi_jam": 3}'
+                            rows={3}
+                            placeholder='Contoh valid: {"min_transaksi": 50000}'
                             value={formData.syarat || ""}
                             onChange={(e) => handleChange("syarat", e.target.value)}
                             style={{ fontFamily: 'monospace' }}
@@ -567,11 +561,11 @@ const PromoTab = () => {
                         />
                         {validationErrors.syarat && (
                             <div style={{ marginTop: 4 }}>
-                                <Text type="danger" style={{ fontSize: 12 }}>Format JSON tidak valid.</Text>
+                                <Text type="danger" style={{ fontSize: 12 }}>Format JSON tidak valid. Pastikan memakai kurung kurawal dan tanda kutip ganda.</Text>
                             </div>
                         )}
                         <Alert 
-                            message="Gunakan format JSON standar. Pastikan menggunakan tanda kutip dua." 
+                            message='Info: Gunakan kunci "min_transaksi" untuk mengatur minimal belanja pelanggan. Kosongkan jika tidak ada syarat.' 
                             type="info" 
                             showIcon 
                             style={{ marginTop: 8, fontSize: 12 }} 

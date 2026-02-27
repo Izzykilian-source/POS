@@ -44,7 +44,7 @@ const SidebarOwner = () => {
 
     const menuItems = [
         { name: "Laporan", icon: <BsGraphUpArrow />, path: "/laporan" },
-        { name: "Bagi Hasil", icon: <CiDollar />, path: "/bagihasil" },
+        //{ name: "Bagi Hasil", icon: <CiDollar />, path: "/bagihasil" },
         {
             name: "Logout",
             icon: <SlLogout />,

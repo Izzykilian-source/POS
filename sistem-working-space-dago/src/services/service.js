@@ -1075,14 +1075,6 @@ const downloadFile = async (response, defaultFilename) => {
   URL.revokeObjectURL(url);
 };
 
-const getAuthHeaders = async () => {
-  const token = await jwtStorage.retrieveToken();
-  return {
-    "Authorization": `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
-};
-
 
 export const fetchRekapData = async (params) => {
   const { tahun, bulan, p1_start, p1_end, p2_start, p2_end } = params;
@@ -1463,39 +1455,51 @@ export const getSavedOrderDetails = async (id_transaksi) => {
 };
 
 
+// --- PASTIKAN HANYA ADA SATU BLOK INI ---
 export const paySavedOrder = async (id_transaksi, updatedOrderData) => {
   try {
     const token = await jwtStorage.retrieveToken();
-    const response = await fetch(`${baseUrl}/api/v1/kasir/pay-saved-order/${id_transaksi}`, { // Endpoint baru
+    const response = await fetch(`${baseUrl}/api/v1/kasir/pay-saved-order/${id_transaksi}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(updatedOrderData), // Kirim data order yang sudah diupdate
+      body: JSON.stringify(updatedOrderData),
     });
-
-    if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        throw new Error(response.statusText || `HTTP error! status: ${response.status}`);
-      }
-      throw new Error(errorData?.error || errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log(`Pay Saved Order (ID: ${id_transaksi}) Response:`, result);
-    return result; // e.g., {"message": "OK", "info": "Order #... berhasil dibayar."}
-
+    return await handleResponse(response);
   } catch (error) {
-    console.error(`Error paying saved order ID ${id_transaksi} (service):`, error);
     throw error;
   }
 };
 
+// --- DAN HANYA SATU BLOK INI ---
 
+
+
+// ============================================================
+// TEMPELKAN DI SINI (DI BAWAH paySavedOrder)
+// ============================================================
+// --- DAN HANYA SATU BLOK INI ---
+export const deleteSavedOrder = async (id_transaksi) => {
+  try {
+    const token = await jwtStorage.retrieveToken();
+    if (!token) throw new Error("Sesi berakhir, silakan login kembali.");
+
+    const response = await fetch(`${baseUrl}/api/v1/kasir/saved-order/${id_transaksi}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    return await handleResponse(response);
+  } catch (error) {
+    console.error("Error di deleteSavedOrder service:", error);
+    throw error;
+  }
+};
 
 export const updatePaymentStatus = async (trx_id) => {
   try {
@@ -4087,5 +4091,105 @@ export const getOwnerFnB = async (startDate, endDate) => {
     throw err;
   }
 };
+// Helper untuk header Auth (Jika backend butuh token admin)
+const getAuthHeaders = () => {
+    const token = localStorage.getItem('token'); 
+    return {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+};
 
+// 1. Ambil Data Lokasi
+export const getLocations = async () => {
+    try {
+        // Gunakan variabel api_url yang sudah ada di service.js Mas
+        // Jika variabelnya beda (misal API_URL), sesuaikan
+        const baseUrl = `${import.meta.env.VITE_BASE_URL}/api/v1/`; 
+        
+        const response = await fetch(baseUrl + 'master-lokasi', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        
+        if (!response.ok) throw new Error(data.error || 'Gagal mengambil data lokasi');
+        
+        return data.datas || [];
+    } catch (error) {
+        console.error("Error getLocations:", error);
+        return [];
+    }
+};
+// --- TAMBAHKAN FUNGSI BARU INI DI SINI ---
+// 1.b Ambil HANYA Data Lokasi yang Aktif (Untuk Halaman Pelanggan)
+export const getActiveLocations = async () => {
+    try {
+        const response = await fetch(api_url + 'master-lokasi?status=active', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        return data.datas || [];
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+};
+// ----------------------------------------
+
+// 2. Tambah Lokasi
+
+// 2. Tambah Lokasi
+export const addLocation = async (payload) => {
+    try {
+        const baseUrl = `${import.meta.env.VITE_BASE_URL}/api/v1/`;
+        
+        const response = await fetch(baseUrl + 'master-lokasi', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Gagal menambah lokasi');
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// 3. Update Lokasi
+export const updateLocation = async (id, payload) => {
+    try {
+        const baseUrl = `${import.meta.env.VITE_BASE_URL}/api/v1/`;
+
+        const response = await fetch(baseUrl + `master-lokasi/${id}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Gagal update lokasi');
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// 4. Hapus Lokasi
+export const deleteLocation = async (id) => {
+    try {
+        const baseUrl = `${import.meta.env.VITE_BASE_URL}/api/v1/`;
+
+        const response = await fetch(baseUrl + `master-lokasi/${id}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Gagal menghapus lokasi');
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
 export const getFnBDashboard = getOwnerFnB;
